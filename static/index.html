@@ -1,0 +1,2783 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>ChoiceRAG — Search</title>
+    <style>
+        :root {
+            --bg: #0b1220;
+            --panel: #1e293b;
+            --panel-2: #334155;
+            --text: #e2e8f0;
+            --muted: #94a3b8;
+            --accent: #38bdf8;
+            --accent-2: #22d3ee;
+            --border: #334155;
+            --green: #4ade80;
+            --amber: #fbbf24;
+            --red: #f87171;
+        }
+
+        * {
+            box-sizing: border-box
+        }
+
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: linear-gradient(180deg, #0b1220 0%, #0f172a 100%);
+            color: var(--text);
+            min-height: 100vh;
+            line-height: 1.5
+        }
+
+        header {
+            padding: 2.5rem 1.5rem 1rem;
+            text-align: center;
+            border-bottom: 1px solid var(--border)
+        }
+
+        h1 {
+            margin: 0 0 .25rem;
+            font-size: 1.75rem;
+            letter-spacing: -.02em
+        }
+
+        .sub {
+            color: var(--muted);
+            font-size: .9rem
+        }
+
+        #health {
+            display: inline-flex;
+            gap: .5rem;
+            align-items: center;
+            margin-top: .75rem;
+            font-size: .8rem;
+            color: var(--muted)
+        }
+
+        .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--green)
+        }
+
+        .dot.err {
+            background: var(--red)
+        }
+
+        .search-wrap {
+            max-width: 880px;
+            margin: 1.5rem auto 0;
+            padding: 0 1.5rem
+        }
+
+        form {
+            display: flex;
+            gap: .5rem
+        }
+
+        input[type=search] {
+            flex: 1;
+            padding: .9rem 1.1rem;
+            font-size: 1rem;
+            background: var(--panel);
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            outline: none;
+            transition: border-color .15s
+        }
+
+        input[type=search]:focus {
+            border-color: var(--accent)
+        }
+
+        button[type=submit] {
+            padding: .9rem 1.4rem;
+            font-size: .95rem;
+            font-weight: 600;
+            background: linear-gradient(135deg, var(--accent), var(--accent-2));
+            color: #0b1220;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer
+        }
+
+        button[type=submit]:disabled {
+            opacity: .5;
+            cursor: wait
+        }
+
+        .examples {
+            display: flex;
+            flex-wrap: wrap;
+            gap: .5rem;
+            margin: .9rem 0 0;
+            font-size: .8rem
+        }
+
+        .examples span {
+            color: var(--muted);
+            margin-right: .25rem
+        }
+
+        .chip {
+            padding: .35rem .7rem;
+            border-radius: 999px;
+            background: var(--panel);
+            border: 1px solid var(--border);
+            color: var(--text);
+            cursor: pointer;
+            font-size: .8rem
+        }
+
+        .chip:hover {
+            border-color: var(--accent);
+            color: var(--accent)
+        }
+
+        #meta {
+            max-width: 880px;
+            margin: 1.5rem auto .5rem;
+            padding: 0 1.5rem;
+            color: var(--muted);
+            font-size: .85rem;
+            min-height: 1.2em
+        }
+
+        #results {
+            max-width: 880px;
+            margin: 0 auto;
+            padding: 0 1.5rem 3rem
+        }
+
+        .result {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.1rem 1.2rem;
+            margin-bottom: 1rem;
+            transition: border-color .15s
+        }
+
+        .result:hover {
+            border-color: var(--accent)
+        }
+
+        .rhead {
+            display: flex;
+            gap: .6rem;
+            align-items: baseline;
+            flex-wrap: wrap;
+            margin-bottom: .5rem
+        }
+
+        .rank {
+            font-weight: 700;
+            font-size: .8rem;
+            color: var(--accent);
+            background: rgba(56, 189, 248, .1);
+            padding: .15rem .5rem;
+            border-radius: 6px
+        }
+
+        .qid {
+            font-size: .75rem;
+            color: var(--muted);
+            font-family: ui-monospace, monospace
+        }
+
+        .score {
+            margin-left: auto;
+            font-size: .75rem;
+            color: var(--muted);
+            font-family: ui-monospace, monospace
+        }
+
+        .qtitle {
+            font-size: 1rem;
+            font-weight: 600;
+            margin: .1rem 0 .5rem
+        }
+
+        .answer {
+            font-size: .93rem;
+            margin-bottom: .75rem;
+            white-space: pre-wrap;
+            word-wrap: break-word
+        }
+
+        .answer strong {
+            color: var(--accent-2);
+            font-weight: 600
+        }
+
+        .meta-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: .4rem;
+            align-items: center;
+            font-size: .78rem;
+            color: var(--muted);
+            margin-bottom: .5rem
+        }
+
+        .pill {
+            padding: .15rem .55rem;
+            border-radius: 999px;
+            background: var(--panel-2);
+            color: var(--text);
+            font-size: .72rem;
+            font-family: ui-monospace, monospace
+        }
+
+        .pill.text {
+            background: rgba(74, 222, 128, .15);
+            color: var(--green)
+        }
+
+        .pill.table {
+            background: rgba(251, 191, 36, .15);
+            color: var(--amber)
+        }
+
+        .pill.chart {
+            background: rgba(248, 113, 113, .15);
+            color: var(--red)
+        }
+
+        .evidence {
+            font-size: .82rem;
+            color: var(--muted);
+            background: rgba(0, 0, 0, .2);
+            border-left: 3px solid var(--accent);
+            padding: .5rem .75rem;
+            border-radius: 6px;
+            margin-top: .5rem;
+            font-family: ui-monospace, monospace;
+            white-space: pre-wrap;
+            word-wrap: break-word
+        }
+
+        .evidence .ev-head {
+            display: flex;
+            gap: .5rem;
+            align-items: center;
+            margin-bottom: .25rem
+        }
+
+        .evidence .ev-actions {
+            margin-left: auto;
+            display: flex;
+            gap: .35rem
+        }
+
+        .evidence button {
+            padding: .15rem .5rem;
+            font-size: .7rem;
+            border-radius: 5px;
+            background: var(--panel-2);
+            color: var(--muted);
+            border: 1px solid var(--border);
+            cursor: pointer
+        }
+
+        .evidence button:hover {
+            color: var(--accent);
+            border-color: var(--accent)
+        }
+
+        .variants {
+            margin-top: .5rem;
+            font-size: .78rem;
+            color: var(--muted)
+        }
+
+        .variants summary {
+            cursor: pointer
+        }
+
+        .variants ul {
+            margin: .35rem 0 0 1.2rem;
+            padding: 0
+        }
+
+        .variants li {
+            margin-bottom: .15rem
+        }
+
+        .empty {
+            text-align: center;
+            padding: 3rem 1rem;
+            color: var(--muted)
+        }
+
+        .error {
+            background: rgba(248, 113, 113, .1);
+            border: 1px solid rgba(248, 113, 113, .3);
+            color: var(--red);
+            padding: 1rem;
+            border-radius: 10px
+        }
+
+        /* ---------- Decision Model Banner & States ---------- */
+        .decision-banner {
+            border-radius: 12px;
+            padding: 1rem 1.25rem;
+            margin-bottom: 1.25rem;
+            border: 1px solid var(--border);
+            background: var(--panel);
+            animation: fade-up .3s ease-out;
+            display: flex;
+            flex-direction: column;
+            gap: .6rem;
+        }
+
+        .decision-banner.state-top1,
+        .decision-banner.state-top2,
+        .decision-banner.state-both {
+            border-color: rgba(56, 189, 248, .5);
+            background: linear-gradient(180deg, rgba(56, 189, 248, .09) 0%, rgba(30, 41, 59, .95) 100%);
+            box-shadow: 0 4px 24px -8px rgba(56, 189, 248, .3);
+        }
+
+        .decision-banner.state-none {
+            border-color: rgba(248, 113, 113, .5);
+            background: linear-gradient(180deg, rgba(248, 113, 113, .12) 0%, rgba(30, 41, 59, .95) 100%);
+            box-shadow: 0 4px 24px -8px rgba(248, 113, 113, .25);
+        }
+
+        .decision-banner.state-generated {
+            border-color: rgba(168, 85, 247, .5);
+            background: linear-gradient(180deg, rgba(168, 85, 247, .12) 0%, rgba(30, 41, 59, .95) 100%);
+            box-shadow: 0 4px 24px -8px rgba(168, 85, 247, .35);
+        }
+
+        .db-badge.generated {
+            background: rgba(168, 85, 247, .2);
+            color: #c084fc;
+            border: 1px solid rgba(168, 85, 247, .4);
+        }
+
+        .generated-box {
+            display: flex;
+            flex-direction: column;
+            gap: .65rem;
+            width: 100%;
+        }
+
+        .gen-answer-text {
+            font-size: .95rem;
+            line-height: 1.55;
+            color: var(--text);
+            background: rgba(0, 0, 0, .25);
+            padding: .85rem 1rem;
+            border-radius: 8px;
+            border-left: 3px solid #c084fc;
+        }
+
+        .gen-footer {
+            display: flex;
+            flex-wrap: wrap;
+            gap: .6rem;
+            align-items: center;
+            font-size: .78rem;
+            color: var(--muted);
+        }
+
+        .pill.gen-source {
+            background: rgba(168, 85, 247, .2);
+            color: #c084fc;
+            border: 1px solid rgba(168, 85, 247, .35);
+            font-weight: 600;
+        }
+
+        .decision-banner.state-evaluating {
+            border-color: rgba(56, 189, 248, .4);
+            background: linear-gradient(180deg, rgba(56, 189, 248, .07) 0%, rgba(30, 41, 59, .95) 100%);
+            box-shadow: 0 4px 20px -8px rgba(56, 189, 248, .2);
+        }
+
+        .decision-banner.state-error {
+            border-color: rgba(251, 191, 36, .4);
+            background: rgba(251, 191, 36, .08);
+        }
+
+        .db-header {
+            display: flex;
+            align-items: center;
+            gap: .65rem;
+            flex-wrap: wrap;
+        }
+
+        .db-badge {
+            font-size: .82rem;
+            font-weight: 700;
+            padding: .25rem .75rem;
+            border-radius: 999px;
+            display: inline-flex;
+            align-items: center;
+            gap: .4rem;
+        }
+
+        .db-badge.top1, .db-badge.top2, .db-badge.both {
+            background: rgba(56, 189, 248, .2);
+            color: var(--accent);
+            border: 1px solid rgba(56, 189, 248, .4);
+        }
+
+        .db-badge.evaluating {
+            background: rgba(56, 189, 248, .15);
+            color: var(--accent);
+            border: 1px solid rgba(56, 189, 248, .35);
+        }
+
+        .db-spinner {
+            width: 13px;
+            height: 13px;
+            border: 2px solid rgba(56, 189, 248, .3);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            display: inline-block;
+            vertical-align: middle;
+            animation: db-spin .8s linear infinite;
+        }
+
+        @keyframes db-spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .db-pulse {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--accent);
+            box-shadow: 0 0 6px var(--accent);
+            vertical-align: middle;
+            animation: db-pulse-anim 1.4s infinite ease-in-out;
+        }
+
+        @keyframes db-pulse-anim {
+            0%, 100% { transform: scale(0.85); opacity: 0.6; }
+            50% { transform: scale(1.3); opacity: 1; }
+        }
+
+        .db-badge.none {
+            background: rgba(248, 113, 113, .2);
+            color: var(--red);
+            border: 1px solid rgba(248, 113, 113, .4);
+        }
+
+        .db-badge.warn {
+            background: rgba(251, 191, 36, .2);
+            color: var(--amber);
+            border: 1px solid rgba(251, 191, 36, .4);
+        }
+
+        .db-model-tag {
+            font-size: .75rem;
+            color: var(--muted);
+            font-family: ui-monospace, monospace;
+        }
+
+        .db-timings {
+            margin-left: auto;
+            font-size: .75rem;
+            font-family: ui-monospace, monospace;
+            display: flex;
+            gap: .45rem;
+            align-items: center;
+        }
+
+        .db-time-pill {
+            padding: .15rem .5rem;
+            border-radius: 6px;
+            background: rgba(0, 0, 0, .3);
+            border: 1px solid var(--border);
+        }
+
+        .db-time-pill.db-accent {
+            color: var(--accent);
+            border-color: rgba(56, 189, 248, .35);
+        }
+
+        .db-time-pill.model-accent {
+            color: var(--green);
+            border-color: rgba(74, 222, 128, .35);
+        }
+
+        .db-time-pill.gen-accent {
+            color: #c084fc;
+            border-color: rgba(168, 85, 247, .35);
+        }
+
+        .db-time-pill.total-accent {
+            color: #f8fafc;
+            background: rgba(255, 255, 255, .1);
+            border-color: rgba(255, 255, 255, .25);
+            font-weight: 700;
+        }
+
+        .pipeline-tracker {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: .55rem;
+            margin-top: .75rem;
+            padding-top: .75rem;
+            border-top: 1px solid rgba(255, 255, 255, .08);
+            width: 100%;
+        }
+
+        .pipe-step {
+            background: rgba(15, 23, 42, .65);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: .5rem .75rem;
+            display: flex;
+            align-items: center;
+            gap: .65rem;
+            transition: all .25s ease;
+        }
+
+        .pipe-step.pending {
+            opacity: .45;
+            background: rgba(15, 23, 42, .3);
+        }
+
+        .pipe-step.active {
+            border-color: rgba(56, 189, 248, .6);
+            background: rgba(56, 189, 248, .12);
+            box-shadow: 0 0 16px -4px rgba(56, 189, 248, .3);
+        }
+
+        .pipe-step.active.gen {
+            border-color: rgba(168, 85, 247, .6);
+            background: rgba(168, 85, 247, .12);
+            box-shadow: 0 0 16px -4px rgba(168, 85, 247, .3);
+        }
+
+        .pipe-step.done {
+            border-color: rgba(74, 222, 128, .4);
+            background: rgba(74, 222, 128, .07);
+        }
+
+        .pipe-step.done.gen {
+            border-color: rgba(168, 85, 247, .45);
+            background: rgba(168, 85, 247, .1);
+        }
+
+        .pipe-step.skipped {
+            opacity: .5;
+            border-style: dashed;
+        }
+
+        .pipe-icon {
+            font-size: 1.15rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 24px;
+            height: 24px;
+            flex-shrink: 0;
+        }
+
+        .pipe-body {
+            display: flex;
+            flex-direction: column;
+            gap: .15rem;
+            flex: 1;
+            min-width: 0;
+        }
+
+        .pipe-title {
+            font-size: .72rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .04em;
+            color: var(--muted);
+        }
+
+        .pipe-step.active .pipe-title {
+            color: var(--accent);
+        }
+
+        .pipe-step.active.gen .pipe-title {
+            color: #c084fc;
+        }
+
+        .pipe-step.done .pipe-title {
+            color: var(--green);
+        }
+
+        .pipe-step.done.gen .pipe-title {
+            color: #c084fc;
+        }
+
+        .pipe-value {
+            font-size: .88rem;
+            font-weight: 600;
+            font-family: ui-monospace, monospace;
+            color: var(--text);
+            display: flex;
+            align-items: center;
+            gap: .4rem;
+        }
+
+        .pipe-sub {
+            font-size: .72rem;
+            color: var(--muted);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .db-message {
+            font-size: .9rem;
+            color: var(--text);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .btn-agent {
+            padding: .4rem 1rem;
+            font-size: .82rem;
+            font-weight: 600;
+            border-radius: 8px;
+            border: 1px solid rgba(248, 113, 113, .5);
+            background: rgba(248, 113, 113, .2);
+            color: #fca5a5;
+            cursor: pointer;
+            transition: all .2s;
+        }
+
+        .btn-agent:hover {
+            background: rgba(248, 113, 113, .35);
+            border-color: var(--red);
+            color: #fff;
+            transform: translateY(-1px);
+        }
+
+        /* Result card highlight by decision */
+        .result.decision-winner {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 1px var(--accent), 0 8px 26px -6px rgba(56, 189, 248, .35);
+            position: relative;
+        }
+
+        .winner-tag {
+            background: linear-gradient(135deg, var(--accent), var(--accent-2));
+            color: #0b1220;
+            font-weight: 700;
+            font-size: .72rem;
+            padding: .15rem .55rem;
+            border-radius: 6px;
+            letter-spacing: .02em;
+            display: inline-flex;
+            align-items: center;
+            gap: .25rem;
+        }
+
+        /* Config bar */
+        .ollama-bar {
+            margin-top: .75rem;
+        }
+
+        .ollama-toggle {
+            display: inline-flex;
+            align-items: center;
+            gap: .4rem;
+            background: transparent;
+            border: none;
+            color: var(--muted);
+            font-size: .78rem;
+            cursor: pointer;
+            padding: .2rem 0;
+            transition: color .15s;
+        }
+
+        .ollama-toggle:hover {
+            color: var(--accent);
+        }
+
+        .ollama-panel {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: .75rem 1rem;
+            margin-top: .5rem;
+            display: flex;
+            flex-wrap: wrap;
+            gap: .75rem;
+            align-items: center;
+            font-size: .8rem;
+            animation: fade-up .2s ease-out;
+        }
+
+        .ollama-panel label {
+            display: inline-flex;
+            align-items: center;
+            gap: .4rem;
+            color: var(--muted);
+            font-size: .78rem;
+        }
+
+        .ollama-panel input[type=text] {
+            background: rgba(0, 0, 0, .25);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: .35rem .65rem;
+            border-radius: 6px;
+            font-size: .8rem;
+            font-family: ui-monospace, monospace;
+            outline: none;
+            transition: border-color .15s;
+        }
+
+        .ollama-panel input[type=text]:focus {
+            border-color: var(--accent);
+        }
+
+        footer {
+            text-align: center;
+            padding: 1.5rem;
+            color: var(--muted);
+            font-size: .78rem;
+            border-top: 1px solid var(--border)
+        }
+
+        footer a {
+            color: var(--accent);
+            text-decoration: none
+        }
+
+        /* ---------- Source button ---------- */
+        .evidence button.src-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: .3rem;
+            color: #0b1220;
+            font-weight: 600;
+            background: linear-gradient(135deg, var(--accent), var(--accent-2));
+            border-color: transparent;
+            box-shadow: 0 0 0 0 rgba(56, 189, 248, .4);
+            transition: box-shadow .2s, transform .15s
+        }
+
+        .evidence button.src-btn:hover {
+            color: #0b1220;
+            border-color: transparent;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 14px -2px rgba(56, 189, 248, .55)
+        }
+
+        .result.viewing {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 1px var(--accent), 0 8px 30px -10px rgba(56, 189, 248, .45)
+        }
+
+        /* ---------- Right-side source panel ---------- */
+        :root {
+            --sp-w: min(760px, 52vw)
+        }
+
+        body {
+            transition: padding-right .3s cubic-bezier(.2, .8, .2, 1)
+        }
+
+        @media (min-width: 1100px) {
+            body.panel-open {
+                padding-right: var(--sp-w)
+            }
+        }
+
+        #source-panel {
+            position: fixed;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            width: var(--sp-w);
+            z-index: 50;
+            display: flex;
+            flex-direction: column;
+            background: rgba(15, 23, 42, .92);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            border-left: 1px solid var(--border);
+            box-shadow: -20px 0 50px -20px rgba(0, 0, 0, .7);
+            transform: translateX(100%);
+            transition: transform .3s cubic-bezier(.2, .8, .2, 1);
+            visibility: hidden
+        }
+
+        body.panel-open #source-panel {
+            transform: none;
+            visibility: visible
+        }
+
+        @media (max-width: 1099px) {
+            :root {
+                --sp-w: min(100vw, 680px)
+            }
+        }
+
+        .sp-head {
+            display: flex;
+            align-items: center;
+            gap: .6rem;
+            padding: .75rem 1rem;
+            border-bottom: 1px solid var(--border)
+        }
+
+        .sp-title {
+            display: flex;
+            align-items: center;
+            gap: .5rem;
+            min-width: 0;
+            font-size: .85rem;
+            font-weight: 600
+        }
+
+        .sp-title #sp-label {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis
+        }
+
+        .sp-tools {
+            margin-left: auto;
+            display: flex;
+            align-items: center;
+            gap: .3rem;
+            flex-shrink: 0
+        }
+
+        .sp-tools button {
+            min-width: 30px;
+            height: 30px;
+            padding: 0 .5rem;
+            border-radius: 8px;
+            background: var(--panel);
+            color: var(--text);
+            border: 1px solid var(--border);
+            cursor: pointer;
+            font-size: .9rem;
+            transition: border-color .15s, color .15s
+        }
+
+        .sp-tools button:hover:not(:disabled) {
+            border-color: var(--accent);
+            color: var(--accent)
+        }
+
+        .sp-tools button:disabled {
+            opacity: .35;
+            cursor: default
+        }
+
+        .sp-tools .sep {
+            width: 1px;
+            height: 18px;
+            background: var(--border);
+            margin: 0 .2rem
+        }
+
+        #sp-page {
+            font-size: .78rem;
+            color: var(--muted);
+            font-family: ui-monospace, monospace;
+            min-width: 56px;
+            text-align: center
+        }
+
+        .sp-quote {
+            padding: .6rem 1rem;
+            font-size: .8rem;
+            color: var(--muted);
+            border-bottom: 1px solid var(--border);
+            background: rgba(0, 0, 0, .15)
+        }
+
+        .sp-quote:empty {
+            display: none
+        }
+
+        .sp-quote .q {
+            color: var(--text)
+        }
+
+        .sp-quote .miss {
+            color: var(--amber)
+        }
+
+        .sp-body {
+            position: relative;
+            flex: 1;
+            overflow: auto;
+            padding: 1rem
+        }
+
+        .sp-stage {
+            position: relative;
+            margin: 0 auto;
+            background: #fff;
+            border-radius: 4px;
+            box-shadow: 0 10px 40px -10px rgba(0, 0, 0, .8)
+        }
+
+        .sp-stage canvas {
+            display: block;
+            border-radius: 4px
+        }
+
+        .sp-hl-layer {
+            position: absolute;
+            inset: 0;
+            pointer-events: none
+        }
+
+        .hl-text {
+            position: absolute;
+            border-radius: 2px;
+            background: rgba(250, 204, 21, .42);
+            mix-blend-mode: multiply;
+            animation: hl-in .5s ease-out both
+        }
+
+        .hl-text.caption {
+            background: rgba(56, 189, 248, .35)
+        }
+
+        .hl-box {
+            position: absolute;
+            border: 2px solid;
+            border-radius: 6px;
+            animation: hl-in .5s ease-out both, hl-pulse 1.6s ease-out .5s 2
+        }
+
+        .hl-box.chart {
+            border-color: #f43f5e;
+            background: rgba(244, 63, 94, .08)
+        }
+
+        .hl-box.table {
+            border-color: #f59e0b;
+            background: rgba(245, 158, 11, .08)
+        }
+
+        .hl-box .tag {
+            position: absolute;
+            top: -1px;
+            left: -1px;
+            transform: translateY(-100%);
+            max-width: 100%;
+            padding: .1rem .45rem;
+            font: 600 .66rem/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            color: #fff;
+            border-radius: 5px 5px 0 0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis
+        }
+
+        .hl-box.chart .tag {
+            background: #f43f5e
+        }
+
+        .hl-box.table .tag {
+            background: #f59e0b
+        }
+
+        @keyframes hl-in {
+            from {
+                opacity: 0;
+                transform: scale(.96)
+            }
+
+            to {
+                opacity: 1;
+                transform: none
+            }
+        }
+
+        @keyframes hl-pulse {
+            0% {
+                box-shadow: 0 0 0 0 rgba(244, 63, 94, .45)
+            }
+
+            100% {
+                box-shadow: 0 0 0 14px rgba(244, 63, 94, 0)
+            }
+        }
+
+        .sp-status {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: .75rem;
+            color: var(--muted);
+            font-size: .85rem;
+            text-align: center;
+            padding: 2rem;
+            background: rgba(15, 23, 42, .6)
+        }
+
+        .sp-status[hidden] {
+            display: none
+        }
+
+        .sp-status code {
+            color: var(--accent);
+            font-size: .78rem
+        }
+
+        .spinner {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            border: 3px solid var(--panel-2);
+            border-top-color: var(--accent);
+            animation: spin .8s linear infinite
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg)
+            }
+        }
+
+        /* ---------- Tabs ---------- */
+        .tabs {
+            display: inline-flex;
+            gap: .25rem;
+            margin-top: 1.1rem;
+            padding: .25rem;
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 12px
+        }
+
+        .tab {
+            padding: .45rem 1.1rem;
+            border: none;
+            border-radius: 9px;
+            background: transparent;
+            color: var(--muted);
+            font-size: .85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background .2s, color .2s
+        }
+
+        .tab:hover {
+            color: var(--text)
+        }
+
+        .tab[aria-selected=true] {
+            background: linear-gradient(135deg, var(--accent), var(--accent-2));
+            color: #0b1220
+        }
+
+        [role=tabpanel][hidden] {
+            display: none
+        }
+
+        [role=tabpanel] {
+            animation: fade-up .3s ease-out
+        }
+
+        @keyframes fade-up {
+            from {
+                opacity: 0;
+                transform: translateY(6px)
+            }
+
+            to {
+                opacity: 1;
+                transform: none
+            }
+        }
+
+        /* ---------- Upload ---------- */
+        .upload-wrap {
+            max-width: 880px;
+            margin: 1.5rem auto 0;
+            padding: 0 1.5rem 3rem
+        }
+
+        .card {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 1.25rem;
+            margin-bottom: 1.25rem
+        }
+
+        .card h2 {
+            margin: 0 0 .25rem;
+            font-size: 1.05rem
+        }
+
+        .card .hint {
+            margin: 0 0 1rem;
+            color: var(--muted);
+            font-size: .82rem
+        }
+
+        .drops {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem
+        }
+
+        @media (max-width: 640px) {
+            .drops {
+                grid-template-columns: 1fr
+            }
+        }
+
+        .drop {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: .35rem;
+            min-height: 150px;
+            padding: 1.1rem;
+            text-align: center;
+            border: 2px dashed var(--border);
+            border-radius: 12px;
+            background: rgba(0, 0, 0, .15);
+            cursor: pointer;
+            transition: border-color .2s, background .2s, transform .15s
+        }
+
+        .drop:hover,
+        .drop.over {
+            border-color: var(--accent);
+            background: rgba(56, 189, 248, .06)
+        }
+
+        .drop.over {
+            transform: scale(1.01)
+        }
+
+        .drop.filled {
+            border-style: solid;
+            border-color: rgba(74, 222, 128, .5);
+            background: rgba(74, 222, 128, .05)
+        }
+
+        .drop input[type=file] {
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+            cursor: pointer
+        }
+
+        .drop .ico {
+            font-size: 1.8rem;
+            line-height: 1
+        }
+
+        .drop .lbl {
+            font-weight: 600;
+            font-size: .9rem
+        }
+
+        .drop .req {
+            font-size: .68rem;
+            font-weight: 600;
+            padding: .05rem .45rem;
+            border-radius: 999px;
+            margin-left: .3rem;
+            vertical-align: middle
+        }
+
+        .drop .req.must {
+            background: rgba(56, 189, 248, .15);
+            color: var(--accent)
+        }
+
+        .drop .req.opt {
+            background: var(--panel-2);
+            color: var(--muted)
+        }
+
+        .sub2 {
+            font-size: .78rem;
+            color: var(--muted)
+        }
+
+        .drop .fname {
+            font-family: ui-monospace, monospace;
+            font-size: .78rem;
+            color: var(--green);
+            word-break: break-all
+        }
+
+        .drop .clear {
+            position: absolute;
+            top: .5rem;
+            right: .5rem;
+            z-index: 2;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            border: 1px solid var(--border);
+            background: var(--panel);
+            color: var(--muted);
+            cursor: pointer;
+            display: none
+        }
+
+        .drop.filled .clear {
+            display: block
+        }
+
+        .drop .clear:hover {
+            color: var(--red);
+            border-color: var(--red)
+        }
+
+        .opts {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            align-items: flex-end;
+            margin-top: 1.1rem
+        }
+
+        .field {
+            display: flex;
+            flex-direction: column;
+            gap: .3rem;
+            flex: 1;
+            min-width: 200px
+        }
+
+        .field label {
+            font-size: .75rem;
+            color: var(--muted)
+        }
+
+        .field input {
+            padding: .6rem .8rem;
+            background: rgba(0, 0, 0, .2);
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: .85rem;
+            outline: none
+        }
+
+        .field input:focus {
+            border-color: var(--accent)
+        }
+
+        .check {
+            display: flex;
+            align-items: center;
+            gap: .45rem;
+            font-size: .82rem;
+            color: var(--muted);
+            padding-bottom: .6rem;
+            cursor: pointer
+        }
+
+        .check input {
+            accent-color: var(--accent)
+        }
+
+        .btn-primary {
+            padding: .65rem 1.4rem;
+            font-size: .9rem;
+            font-weight: 600;
+            background: linear-gradient(135deg, var(--accent), var(--accent-2));
+            color: #0b1220;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: transform .15s, box-shadow .2s, opacity .2s
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 18px -4px rgba(56, 189, 248, .55)
+        }
+
+        .btn-primary:disabled {
+            opacity: .45;
+            cursor: not-allowed
+        }
+
+        .save-as {
+            margin-top: .8rem;
+            font-size: .78rem;
+            color: var(--muted)
+        }
+
+        .save-as code {
+            color: var(--accent)
+        }
+
+        .progress {
+            height: 6px;
+            margin-top: 1rem;
+            border-radius: 999px;
+            background: var(--panel-2);
+            overflow: hidden
+        }
+
+        .progress[hidden] {
+            display: none
+        }
+
+        .progress>div {
+            height: 100%;
+            width: 0;
+            background: linear-gradient(90deg, var(--accent), var(--accent-2));
+            transition: width .15s
+        }
+
+        .progress.indeterminate>div {
+            width: 35% !important;
+            animation: indet 1.1s ease-in-out infinite
+        }
+
+        @keyframes indet {
+            from {
+                transform: translateX(-100%)
+            }
+
+            to {
+                transform: translateX(300%)
+            }
+        }
+
+        #up-result {
+            margin-top: 1rem
+        }
+
+        .ok {
+            background: rgba(74, 222, 128, .08);
+            border: 1px solid rgba(74, 222, 128, .3);
+            color: var(--green);
+            padding: .85rem 1rem;
+            border-radius: 10px;
+            font-size: .85rem
+        }
+
+        .ok .kv {
+            display: flex;
+            flex-wrap: wrap;
+            gap: .4rem;
+            margin-top: .5rem
+        }
+
+        .ok a {
+            color: var(--accent)
+        }
+
+        .docs {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: .82rem
+        }
+
+        .docs th,
+        .docs td {
+            text-align: left;
+            padding: .55rem .6rem;
+            border-bottom: 1px solid var(--border)
+        }
+
+        .docs th {
+            color: var(--muted);
+            font-weight: 600;
+            font-size: .72rem;
+            text-transform: uppercase;
+            letter-spacing: .04em
+        }
+
+        .docs td.mono {
+            font-family: ui-monospace, monospace;
+            word-break: break-all
+        }
+
+        .docs tr:last-child td {
+            border-bottom: none
+        }
+
+        .docs .none {
+            color: var(--amber)
+        }
+
+        .card-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: .75rem
+        }
+
+        .btn-ghost {
+            padding: .3rem .7rem;
+            font-size: .75rem;
+            border-radius: 7px;
+            background: transparent;
+            color: var(--muted);
+            border: 1px solid var(--border);
+            cursor: pointer
+        }
+
+        .btn-ghost:hover {
+            color: var(--accent);
+            border-color: var(--accent)
+        }
+    </style>
+</head>
+
+<body>
+
+    <header>
+        <h1>ChoiceRAG</h1>
+        <div class="sub">BM25 search over the Weekly Market View Q&amp;A corpus</div>
+        <div id="health"><span class="dot"></span><span id="health-text">checking…</span></div>
+        <nav class="tabs" role="tablist" aria-label="Sections">
+            <button id="tab-btn-search" class="tab" role="tab" aria-selected="true" aria-controls="tab-search"
+                data-tab="search">🔎 Search</button>
+            <button id="tab-btn-upload" class="tab" role="tab" aria-selected="false" aria-controls="tab-upload"
+                data-tab="upload">⬆ Upload</button>
+        </nav>
+    </header>
+
+    <main id="tab-search" role="tabpanel" aria-labelledby="tab-btn-search">
+        <div class="search-wrap">
+            <form id="search-form">
+                <input id="query" type="search" name="q" autofocus autocomplete="off"
+                    placeholder='Ask something — e.g. "US CPI surprise" or "Japan banks"'>
+                <button id="submit" type="submit">Search</button>
+            </form>
+            <div class="examples">
+                <span>try:</span>
+                <button class="chip" data-q="US CPI surprise">US CPI surprise</button>
+                <button class="chip" data-q="Fed hikes December">Fed hikes December</button>
+                <button class="chip" data-q="Japan banks">Japan banks</button>
+                <button class="chip" data-q="NZD/USD recovery">NZD/USD recovery</button>
+                <button class="chip" data-q="oil forecast">oil forecast</button>
+                <button class="chip" data-q="France rating">France rating</button>
+                <button class="chip" data-q="US 10-year yields">US 10-year yields</button>
+            </div>
+            <div class="ollama-bar">
+                <button id="ollama-toggle" class="ollama-toggle" type="button" title="Configure Ollama model & URL">
+                    <span>⚙ Decision model:</span> <strong id="ollama-label-model">tev1:0.8b</strong> <span class="sub2">@</span> <span id="ollama-label-url" class="sub2 mono">http://localhost:11434</span> ▾
+                </button>
+                <div id="ollama-settings" class="ollama-panel" style="display:none;">
+                    <label>URL: <input id="ollama-url" type="text" placeholder="http://localhost:11434" value="http://localhost:11434" size="24"></label>
+                    <button type="button" class="btn-ghost" id="quick-docker-btn" title="Use host.docker.internal (if running inside Docker)">host.docker.internal</button>
+                    <button type="button" class="btn-ghost" id="quick-local-btn" title="Use localhost">localhost</button>
+                    <label>Decision: <input id="ollama-model" type="text" placeholder="tev1:0.8b" value="tev1:0.8b" size="10"></label>
+                    <label>Generator: <input id="ollama-gen-model" type="text" placeholder="qwen2.5:0.5b" value="qwen2.5:0.5b" size="12"></label>
+                    <button id="ollama-test-btn" class="btn-ghost" type="button">Test connection</button>
+                    <span id="ollama-status-badge" class="sub2"></span>
+                </div>
+            </div>
+        </div>
+
+        <div id="meta"></div>
+        <div id="decision-banner-wrap" style="max-width: 880px; margin: 0 auto; padding: 0 1.5rem;"></div>
+        <div id="results"></div>
+    </main>
+
+    <section id="tab-upload" role="tabpanel" aria-labelledby="tab-btn-upload" hidden>
+        <div class="upload-wrap">
+            <form id="upload-form" class="card" novalidate>
+                <h2>Upload a document</h2>
+                <p class="hint">The markdown Q&amp;A corpus is indexed for search; the PDF is stored alongside it
+                    and used by the source viewer for highlighting.</p>
+
+                <div class="drops">
+                    <div class="drop" id="drop-md">
+                        <input id="file-md" type="file" accept=".md,.markdown,text/markdown" aria-label="Markdown file">
+                        <button type="button" class="clear" data-clear="md" title="Remove">✕</button>
+                        <div class="ico">📝</div>
+                        <div class="lbl">Markdown corpus<span class="req must">required</span></div>
+                        <div class="sub2">Drop a <code>.md</code> file or click to browse</div>
+                        <div class="fname"></div>
+                    </div>
+                    <div class="drop" id="drop-pdf">
+                        <input id="file-pdf" type="file" accept=".pdf,application/pdf" aria-label="PDF file">
+                        <button type="button" class="clear" data-clear="pdf" title="Remove">✕</button>
+                        <div class="ico">📄</div>
+                        <div class="lbl">Source PDF<span class="req opt">optional</span></div>
+                        <div class="sub2">Drop a <code>.pdf</code> file or click to browse</div>
+                        <div class="fname"></div>
+                    </div>
+                </div>
+                <div id="save-as" class="save-as"></div>
+
+                <div class="opts">
+                    <div class="field">
+                        <label for="admin-token">Admin token (if the server requires one)</label>
+                        <input id="admin-token" type="password" autocomplete="off" placeholder="X-Admin-Token">
+                    </div>
+                    <label class="check"><input id="purge-old" type="checkbox"> purge old versions</label>
+                    <button id="upload-btn" class="btn-primary" type="submit" disabled>Upload &amp; index</button>
+                </div>
+
+                <div id="up-progress" class="progress" hidden>
+                    <div></div>
+                </div>
+                <div id="up-result"></div>
+            </form>
+
+            <div class="card">
+                <div class="card-head">
+                    <h2>Indexed documents</h2>
+                    <button id="docs-refresh" class="btn-ghost" type="button">↻ refresh</button>
+                </div>
+                <div id="docs-list" class="sub2">Loading…</div>
+            </div>
+        </div>
+    </section>
+
+    <footer>
+        Serving from <a href="/docs" target="_blank">FastAPI</a> · SQLite + FTS5 ·
+        <a href="/health" target="_blank">/health</a>
+    </footer>
+
+    <aside id="source-panel" aria-hidden="true" aria-label="Source document viewer">
+        <div class="sp-head">
+            <div class="sp-title">
+                <span id="sp-type" class="pill">text</span>
+                <span id="sp-label">Source</span>
+            </div>
+            <div class="sp-tools">
+                <button id="sp-prev" title="Previous page">‹</button>
+                <span id="sp-page">–</span>
+                <button id="sp-next" title="Next page">›</button>
+                <span class="sep"></span>
+                <button id="sp-zoom-out" title="Zoom out">−</button>
+                <button id="sp-zoom-in" title="Zoom in">+</button>
+                <button id="sp-jump" title="Jump to highlight">◎</button>
+                <span class="sep"></span>
+                <button id="sp-close" title="Close (Esc)">✕</button>
+            </div>
+        </div>
+        <div id="sp-quote" class="sp-quote"></div>
+        <div id="sp-body" class="sp-body">
+            <div id="sp-stage" class="sp-stage">
+                <canvas id="sp-canvas"></canvas>
+                <div id="sp-hl" class="sp-hl-layer"></div>
+            </div>
+            <div id="sp-status" class="sp-status" hidden></div>
+        </div>
+    </aside>
+
+    <script>
+        const form = document.getElementById('search-form');
+        const input = document.getElementById('query');
+        const submit = document.getElementById('submit');
+        const results = document.getElementById('results');
+        const meta = document.getElementById('meta');
+        const healthDot = document.querySelector('#health .dot');
+        const healthText = document.getElementById('health-text');
+
+        function refreshHealth() {
+            return fetch('/health').then(r => r.json()).then(d => {
+                healthDot.classList.remove('err');
+                healthText.textContent = `${d.active_chunks} chunks · ${d.fts_rows} FTS rows`;
+            }).catch(() => {
+                healthDot.classList.add('err');
+                healthText.textContent = 'backend unreachable';
+            });
+        }
+        refreshHealth();
+
+        function esc(s) { return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])) }
+        function renderText(s) { return esc(s).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>') }
+
+        const decisionBannerWrap = document.getElementById('decision-banner-wrap');
+        const ollamaToggleBtn = document.getElementById('ollama-toggle');
+        const ollamaSettings = document.getElementById('ollama-settings');
+        const ollamaUrlInput = document.getElementById('ollama-url');
+        const ollamaModelInput = document.getElementById('ollama-model');
+        const ollamaGenModelInput = document.getElementById('ollama-gen-model');
+        const ollamaLabelUrl = document.getElementById('ollama-label-url');
+        const ollamaLabelModel = document.getElementById('ollama-label-model');
+        const ollamaTestBtn = document.getElementById('ollama-test-btn');
+        const ollamaStatusBadge = document.getElementById('ollama-status-badge');
+
+        // Restore saved Ollama configuration or defaults
+        const storedOllamaUrl = localStorage.getItem('choicerag.ollamaUrl') || 'http://localhost:11434';
+        const storedOllamaModel = localStorage.getItem('choicerag.ollamaModel') || 'tev1:0.8b';
+        const storedOllamaGenModel = localStorage.getItem('choicerag.ollamaGenModel') || 'qwen2.5:0.5b';
+        ollamaUrlInput.value = storedOllamaUrl;
+        ollamaModelInput.value = storedOllamaModel;
+        if (ollamaGenModelInput) ollamaGenModelInput.value = storedOllamaGenModel;
+        ollamaLabelUrl.textContent = storedOllamaUrl;
+        ollamaLabelModel.textContent = storedOllamaModel;
+
+        function updateOllamaLabels() {
+            const u = ollamaUrlInput.value.trim() || 'http://localhost:11434';
+            const m = ollamaModelInput.value.trim() || 'tev1:0.8b';
+            const gm = ollamaGenModelInput ? (ollamaGenModelInput.value.trim() || 'qwen2.5:0.5b') : 'qwen2.5:0.5b';
+            ollamaLabelUrl.textContent = u;
+            ollamaLabelModel.textContent = m;
+            localStorage.setItem('choicerag.ollamaUrl', u);
+            localStorage.setItem('choicerag.ollamaModel', m);
+            localStorage.setItem('choicerag.ollamaGenModel', gm);
+        }
+        ollamaUrlInput.addEventListener('input', updateOllamaLabels);
+        ollamaModelInput.addEventListener('input', updateOllamaLabels);
+        if (ollamaGenModelInput) ollamaGenModelInput.addEventListener('input', updateOllamaLabels);
+
+        const quickDockerBtn = document.getElementById('quick-docker-btn');
+        const quickLocalBtn = document.getElementById('quick-local-btn');
+        if (quickDockerBtn) {
+            quickDockerBtn.addEventListener('click', () => {
+                ollamaUrlInput.value = 'http://host.docker.internal:11434';
+                updateOllamaLabels();
+                ollamaTestBtn.click();
+            });
+        }
+        if (quickLocalBtn) {
+            quickLocalBtn.addEventListener('click', () => {
+                ollamaUrlInput.value = 'http://localhost:11434';
+                updateOllamaLabels();
+                ollamaTestBtn.click();
+            });
+        }
+
+        ollamaToggleBtn.addEventListener('click', () => {
+            const isHidden = ollamaSettings.style.display === 'none';
+            ollamaSettings.style.display = isHidden ? 'flex' : 'none';
+            ollamaToggleBtn.innerHTML = `<span>⚙ Decision model:</span> <strong id="ollama-label-model">${esc(ollamaModelInput.value.trim() || 'tev1:0.8b')}</strong> <span class="sub2">@</span> <span id="ollama-label-url" class="sub2 mono">${esc(ollamaUrlInput.value.trim() || 'http://localhost:11434')}</span> ${isHidden ? '▴' : '▾'}`;
+        });
+
+        ollamaTestBtn.addEventListener('click', async () => {
+            const targetUrl = ollamaUrlInput.value.trim() || 'http://localhost:11434';
+            ollamaStatusBadge.textContent = 'connecting…';
+            ollamaStatusBadge.className = 'sub2';
+            try {
+                const res = await fetch(`/ollama/status?url=${encodeURIComponent(targetUrl)}`);
+                const d = await res.json();
+                if (d.status === 'ok') {
+                    const hasModel = Array.isArray(d.models) && d.models.some(m => m.startsWith(ollamaModelInput.value.trim()) || m === ollamaModelInput.value.trim());
+                    ollamaStatusBadge.textContent = hasModel
+                        ? `✓ connected · model ${ollamaModelInput.value.trim()} available`
+                        : `✓ connected · ${d.models?.length || 0} models found (${ollamaModelInput.value.trim()} not found)`;
+                    ollamaStatusBadge.style.color = hasModel ? 'var(--green)' : 'var(--amber)';
+                } else {
+                    ollamaStatusBadge.textContent = `⚠ ${d.detail || 'unreachable'}`;
+                    ollamaStatusBadge.style.color = 'var(--red)';
+                }
+            } catch (err) {
+                ollamaStatusBadge.textContent = `⚠ ${err.message}`;
+                ollamaStatusBadge.style.color = 'var(--red)';
+            }
+        });
+
+        let liveTimerInterval = null;
+        function startLiveTimer(elementId, startMs) {
+            if (liveTimerInterval) clearInterval(liveTimerInterval);
+            liveTimerInterval = setInterval(() => {
+                const el = document.getElementById(elementId);
+                if (!el) {
+                    clearInterval(liveTimerInterval);
+                    return;
+                }
+                const sec = ((performance.now() - startMs) / 1000).toFixed(1);
+                el.textContent = `${sec}s`;
+            }, 100);
+        }
+
+        function stopLiveTimer() {
+            if (liveTimerInterval) {
+                clearInterval(liveTimerInterval);
+                liveTimerInterval = null;
+            }
+        }
+
+        function renderPipelineTracker({ step1, step2, step3 }) {
+            return `
+                <div class="pipeline-tracker">
+                    <div class="pipe-step ${step1.status || 'pending'}">
+                        <div class="pipe-icon">${step1.icon || '🗄️'}</div>
+                        <div class="pipe-body">
+                            <div class="pipe-title">1. DB Retrieval</div>
+                            <div class="pipe-value">${step1.valueHtml || '–'}</div>
+                            <div class="pipe-sub">${esc(step1.sub || '')}</div>
+                        </div>
+                    </div>
+                    <div class="pipe-step ${step2.status || 'pending'}">
+                        <div class="pipe-icon">${step2.icon || '⚖️'}</div>
+                        <div class="pipe-body">
+                            <div class="pipe-title">2. Ollama Decision</div>
+                            <div class="pipe-value">${step2.valueHtml || '–'}</div>
+                            <div class="pipe-sub">${esc(step2.sub || '')}</div>
+                        </div>
+                    </div>
+                    <div class="pipe-step ${step3.status || 'pending'}">
+                        <div class="pipe-icon">${step3.icon || '✨'}</div>
+                        <div class="pipe-body">
+                            <div class="pipe-title">3. Ollama Generate</div>
+                            <div class="pipe-value">${step3.valueHtml || '–'}</div>
+                            <div class="pipe-sub">${esc(step3.sub || '')}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderProgressBanner({ step, dbSec, dbCount, decisionSec, decisionModel, genModel }) {
+            const step1 = {
+                status: 'done',
+                icon: '✓',
+                valueHtml: `${Number(dbSec).toFixed(2)}s`,
+                sub: `${dbCount} DB candidates retrieved`
+            };
+
+            let step2;
+            let step3;
+            let badgeText = '';
+            let messageText = '';
+
+            if (step === 2) {
+                step2 = {
+                    status: 'active',
+                    icon: '<span class="db-spinner"></span>',
+                    valueHtml: `<span id="decision-live-timer">0.0s</span>`,
+                    sub: `Evaluating with ${decisionModel}…`
+                };
+                step3 = {
+                    status: 'pending',
+                    icon: '⏳',
+                    valueHtml: 'Pending',
+                    sub: `Waiting for decision`
+                };
+                badgeText = 'Step 2/3: Decision model evaluating candidates…';
+                messageText = `Retrieved <strong>${dbCount}</strong> candidates in <strong>${Number(dbSec).toFixed(2)}s</strong>. System 1 model (<code class="mono">${esc(decisionModel)}</code>) is now evaluating relevance and coverage…`;
+            } else if (step === 3) {
+                step2 = {
+                    status: 'done',
+                    icon: '✓',
+                    valueHtml: `${Number(decisionSec).toFixed(2)}s`,
+                    sub: `State: none (no candidate sufficient)`
+                };
+                step3 = {
+                    status: 'active gen',
+                    icon: '<span class="db-spinner" style="border-top-color:#c084fc;"></span>',
+                    valueHtml: `<span id="gen-live-timer">0.0s</span>`,
+                    sub: `Synthesizing with ${genModel}…`
+                };
+                badgeText = 'Step 3/3: Ollama synthesizing answer on the fly…';
+                messageText = `Candidates judged insufficient. Generator (<code class="mono">${esc(genModel)}</code>) is synthesizing a comprehensive answer from the top 5 database records…`;
+            }
+
+            const trackerHtml = renderPipelineTracker({ step1, step2, step3 });
+
+            return `
+                <div class="decision-banner state-evaluating">
+                    <div class="db-header">
+                        <span class="db-badge evaluating"><span class="db-spinner"></span> ${esc(badgeText)}</span>
+                        <div class="db-timings">
+                            <span class="db-time-pill db-accent">DB: ${Number(dbSec).toFixed(2)}s</span>
+                            ${step === 2 ? `<span class="db-time-pill model-accent"><span class="db-pulse"></span> Decision: in flight</span>` : `<span class="db-time-pill model-accent">Decision: ${Number(decisionSec).toFixed(2)}s</span>`}
+                            ${step === 3 ? `<span class="db-time-pill gen-accent"><span class="db-pulse" style="background:#c084fc; box-shadow:0 0 6px #c084fc;"></span> Generate: in flight</span>` : ''}
+                        </div>
+                    </div>
+                    <div class="db-message">
+                        <span>${messageText}</span>
+                    </div>
+                    ${trackerHtml}
+                </div>
+            `;
+        }
+
+        function renderFinalBanner({ decision, dbSec, dbCount, decisionSec, decisionModel, genSec, genModel, totalSec, q }) {
+            const st = decision.decision;
+            const isError = Boolean(decision.error && st === 'none');
+
+            let bannerClass = 'state-top1';
+            let badgeClass = 'top1';
+            let badgeIcon = '🎯';
+
+            if (st === 'Just top 1') {
+                bannerClass = 'state-top1'; badgeClass = 'top1'; badgeIcon = '1️⃣';
+            } else if (st === 'Just top 2') {
+                bannerClass = 'state-top2'; badgeClass = 'top2'; badgeIcon = '2️⃣';
+            } else if (st === 'both top1 and top2') {
+                bannerClass = 'state-both'; badgeClass = 'both'; badgeIcon = '✨';
+            } else if (st === 'generated') {
+                bannerClass = 'state-generated'; badgeClass = 'generated'; badgeIcon = '✨';
+            } else if (st === 'none') {
+                bannerClass = isError ? 'state-error' : 'state-none';
+                badgeClass = isError ? 'warn' : 'none';
+                badgeIcon = isError ? '⚠️' : '❓';
+            }
+
+            const step1 = {
+                status: 'done',
+                icon: '✓',
+                valueHtml: `${Number(dbSec).toFixed(2)}s`,
+                sub: `${dbCount} DB candidates`
+            };
+
+            let step2;
+            let step3;
+
+            if (st === 'generated') {
+                step2 = {
+                    status: 'done',
+                    icon: '✓',
+                    valueHtml: `${Number(decisionSec).toFixed(2)}s`,
+                    sub: `State: none (${decisionModel})`
+                };
+                step3 = {
+                    status: 'done gen',
+                    icon: '★',
+                    valueHtml: `${Number(genSec).toFixed(2)}s`,
+                    sub: `Synthesized (${genModel})`
+                };
+            } else if (st === 'none') {
+                step2 = {
+                    status: isError ? 'active' : 'done',
+                    icon: isError ? '⚠' : '✓',
+                    valueHtml: `${Number(decisionSec).toFixed(2)}s`,
+                    sub: isError ? 'Decision error' : `State: none`
+                };
+                step3 = {
+                    status: genSec != null ? 'done' : 'skipped',
+                    icon: genSec != null ? '–' : '—',
+                    valueHtml: genSec != null ? `${Number(genSec).toFixed(2)}s` : 'No answer',
+                    sub: genSec != null ? `Agent fallback` : 'Skipped'
+                };
+            } else {
+                step2 = {
+                    status: 'done',
+                    icon: '✓',
+                    valueHtml: `${Number(decisionSec).toFixed(2)}s`,
+                    sub: `Winner: ${st}`
+                };
+                step3 = {
+                    status: 'skipped',
+                    icon: '—',
+                    valueHtml: 'Skipped',
+                    sub: 'Answer found in candidates'
+                };
+            }
+
+            const trackerHtml = renderPipelineTracker({ step1, step2, step3 });
+
+            const timingsHtml = `
+                <div class="db-timings">
+                    <span class="db-time-pill db-accent" title="Step 1: SQLite FTS5 database retrieval time">DB: ${Number(dbSec).toFixed(2)}s</span>
+                    <span class="db-time-pill model-accent" title="Step 2: System 1 decision model evaluation time">Decision: ${Number(decisionSec).toFixed(2)}s</span>
+                    ${genSec != null ? `<span class="db-time-pill gen-accent" title="Step 3: Ollama answer synthesis time">Generate: ${Number(genSec).toFixed(2)}s</span>` : ''}
+                    <span class="db-time-pill total-accent" title="Total pipeline time in seconds">Total: ${Number(totalSec).toFixed(2)}s</span>
+                </div>
+            `;
+
+            let messageHtml = '';
+            if (st === 'generated') {
+                messageHtml = `
+                    <div class="db-message generated-box">
+                        <div class="gen-answer-text">
+                            <strong>Synthesized Answer (${esc(genModel)}):</strong><br>${renderText(decision.generated_answer || '')}
+                        </div>
+                        <div class="gen-footer">
+                            <span class="pill gen-source">answer_source = 'generated_on_the_fly'</span>
+                            <span>✓ Stored into SQLite DB as chunk <code class="mono">${esc(decision.chunk_id || '')}</code></span>
+                            <span>(Synthesized in <strong>${Number(genSec).toFixed(2)}s</strong>)</span>
+                        </div>
+                    </div>
+                `;
+            } else if (st === 'none') {
+                if (isError) {
+                    messageHtml = `
+                        <div class="db-message">
+                            <span>Decision model unavailable at <code class="mono">${esc(decision.url)}</code>: <em>${esc(decision.error)}</em></span>
+                            <button class="btn-ghost" type="button" onclick="document.getElementById('ollama-toggle').click()">Configure URL</button>
+                        </div>
+                    `;
+                } else {
+                    messageHtml = `
+                        <div class="db-message">
+                            <span><strong>[No appropriate answer found, Ask an agent]</strong> — candidate answers were judged insufficient for this query.</span>
+                            <button class="btn-agent" type="button" id="ask-agent-btn">🧑‍💼 Ask an agent</button>
+                        </div>
+                    `;
+                }
+            } else if (st === 'Just top 1') {
+                messageHtml = `<div class="db-message"><span>Decision: Candidate <strong>#1</strong> provides the appropriate answer to your question.</span></div>`;
+            } else if (st === 'Just top 2') {
+                messageHtml = `<div class="db-message"><span>Decision: Candidate <strong>#2</strong> provides the appropriate answer to your question.</span></div>`;
+            } else if (st === 'both top1 and top2') {
+                messageHtml = `<div class="db-message"><span>Decision: <strong>Both Top 1 and Top 2</strong> candidates provide relevant and appropriate answers.</span></div>`;
+            }
+
+            return `
+                <div class="decision-banner ${bannerClass}">
+                    <div class="db-header">
+                        <span class="db-badge ${badgeClass}">${badgeIcon} State: ${esc(decision.label || decision.decision)}</span>
+                        <span class="db-model-tag">evaluator: ${esc(decisionModel)}</span>
+                        ${timingsHtml}
+                    </div>
+                    ${messageHtml}
+                    ${trackerHtml}
+                </div>
+            `;
+        }
+
+        function renderResult(r, isWinner = false, winnerLabel = '') {
+            const div = document.createElement('div');
+            div.className = 'result' + (isWinner ? ' decision-winner' : '');
+
+            const head = document.createElement('div'); head.className = 'rhead';
+            let winnerBadge = isWinner ? `<span class="winner-tag">★ ${esc(winnerLabel || 'Selected')}</span>` : '';
+            head.innerHTML = `${winnerBadge}
+    <span class="rank">#${r.rank}</span>
+    <span class="qid">${esc(r.id)}</span>
+    <span class="score">score ${Number(r.score).toFixed(3)}</span>`;
+            div.appendChild(head);
+
+            const title = document.createElement('div'); title.className = 'qtitle';
+            title.textContent = r.question; div.appendChild(title);
+
+            const ans = document.createElement('div'); ans.className = 'answer';
+            ans.innerHTML = renderText(r.answer || ''); div.appendChild(ans);
+
+            const metaRow = document.createElement('div'); metaRow.className = 'meta-row';
+            if (r.source) metaRow.innerHTML += `<span class="pill">${esc(r.source)}</span>`;
+            if (r.keywords) metaRow.innerHTML += `<span>${esc(r.keywords)}</span>`;
+            div.appendChild(metaRow);
+
+            if (r.evidence) {
+                const ev = r.evidence, type = ev.type || 'text', page = ev.page ?? '?';
+                const evDiv = document.createElement('div'); evDiv.className = 'evidence';
+                const evHead = document.createElement('div'); evHead.className = 'ev-head';
+                evHead.innerHTML = `<span class="pill ${type}">${type}</span>
+      <span>page ${page}</span>
+      <span class="ev-actions">
+        <button class="src-btn" data-view="source" title="Show highlighted source in PDF">📄 Source · p.${esc(String(page))}</button>
+        <button data-copy="quote">copy quote</button>
+        <button data-copy="json">copy json</button>
+      </span>`;
+                evDiv.appendChild(evHead);
+
+                evHead.querySelector('[data-view=source]').addEventListener('click', () => {
+                    document.querySelectorAll('.result.viewing').forEach(x => x.classList.remove('viewing'));
+                    div.classList.add('viewing');
+                    if (window.SourceViewer) window.SourceViewer.open(r);
+                    else alert('PDF viewer is still loading — try again in a moment.');
+                });
+
+                let body = '';
+                if (ev.quote) body += `“${esc(ev.quote)}”`;
+                if (ev.caption_anchor) body += `${body ? '\n' : ''}caption: ${esc(ev.caption_anchor)}`;
+                if (Array.isArray(ev.bbox)) body += `${body ? '\n' : ''}bbox: [${ev.bbox.join(', ')}]`;
+                if (ev.crop) body += `${body ? '\n' : ''}crop: ${esc(ev.crop)}`;
+                const bodyDiv = document.createElement('div');
+                bodyDiv.style.marginTop = '.25rem';
+                bodyDiv.textContent = body || '(no quote or bbox)';
+                evDiv.appendChild(bodyDiv);
+
+                evDiv.querySelectorAll('button[data-copy]').forEach(btn => {
+                    btn.addEventListener('click', async () => {
+                        const text = btn.dataset.copy === 'json'
+                            ? JSON.stringify(ev, null, 2)
+                            : (ev.quote || ev.caption_anchor || '');
+                        try {
+                            await navigator.clipboard.writeText(text);
+                            const o = btn.textContent; btn.textContent = 'copied ✓';
+                            setTimeout(() => btn.textContent = o, 1200);
+                        } catch { }
+                    });
+                });
+                div.appendChild(evDiv);
+            }
+
+            if (Array.isArray(r.variants) && r.variants.length) {
+                const det = document.createElement('details'); det.className = 'variants';
+                det.innerHTML = `<summary>${r.variants.length} question variant${r.variants.length > 1 ? 's' : ''}</summary>
+      <ul>${r.variants.map(v => `<li>${esc(v)}</li>`).join('')}</ul>`;
+                div.appendChild(det);
+            }
+            return div;
+        }
+
+        function highlightWinningCards(dState) {
+            const cards = results.querySelectorAll('.result');
+            cards.forEach(card => {
+                const rankEl = card.querySelector('.rank');
+                if (!rankEl) return;
+                const rankNum = parseInt(rankEl.textContent.replace('#', ''), 10);
+                const isW1 = (dState === 'Just top 1' || dState === 'both top1 and top2') && rankNum === 1;
+                const isW2 = (dState === 'Just top 2' || dState === 'both top1 and top2') && rankNum === 2;
+                if (isW1 || isW2) {
+                    card.classList.add('decision-winner');
+                    const head = card.querySelector('.rhead');
+                    if (head && !head.querySelector('.winner-tag')) {
+                        const label = (dState === 'both top1 and top2') ? 'Selected Top 1 & 2' : (isW1 ? 'Top 1 Selected' : 'Top 2 Selected');
+                        const winnerTag = document.createElement('span');
+                        winnerTag.className = 'winner-tag';
+                        winnerTag.textContent = `★ ${label}`;
+                        head.insertBefore(winnerTag, head.firstChild);
+                    }
+                }
+            });
+        }
+
+        let currentSearchSeq = 0;
+
+        async function runSearch(q) {
+            if (!q.trim()) return;
+            const searchId = ++currentSearchSeq;
+            stopLiveTimer();
+
+            submit.disabled = true;
+            submit.textContent = 'Searching…';
+            results.innerHTML = '';
+            meta.textContent = 'Step 1/3: Retrieving candidates from SQLite database…';
+            decisionBannerWrap.innerHTML = '';
+
+            const currentOllamaUrl = ollamaUrlInput.value.trim() || 'http://localhost:11434';
+            const currentOllamaModel = ollamaModelInput.value.trim() || 'tev1:0.8b';
+            const currentOllamaGenModel = ollamaGenModelInput ? (ollamaGenModelInput.value.trim() || 'qwen2.5:0.5b') : 'qwen2.5:0.5b';
+
+            let dbData;
+            let dbSec = 0;
+            const tStartAll = performance.now();
+
+            // ──────────────────────────────────────────────────────────
+            // STEP 1: DB Retrieval (SQLite FTS5)
+            // ──────────────────────────────────────────────────────────
+            try {
+                const tDb0 = performance.now();
+                const res = await fetch('/search', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        query: q,
+                        top_k: 5,
+                        skip_decision: true
+                    })
+                });
+                dbSec = (performance.now() - tDb0) / 1000;
+                if (!res.ok) {
+                    const e = await res.json().catch(() => ({}));
+                    throw new Error(e.detail || `HTTP ${res.status}`);
+                }
+                dbData = await res.json();
+                if (searchId !== currentSearchSeq) return;
+
+                if (dbData.retrieval_sec != null) {
+                    dbSec = dbData.retrieval_sec;
+                }
+
+                if (!dbData.results.length) {
+                    meta.textContent = `0 results · DB retrieval: ${dbSec.toFixed(2)}s`;
+                    results.innerHTML = '<div class="empty">No matches found in database. Try a broader query.</div>';
+                    submit.disabled = false;
+                    submit.textContent = 'Search';
+                    return;
+                }
+
+                // Render ALL retrieved DB candidate cards immediately!
+                results.innerHTML = '';
+                dbData.results.forEach(r => {
+                    results.appendChild(renderResult(r, false, ''));
+                });
+
+                const url = new URL(window.location.href);
+                url.searchParams.set('q', q);
+                history.replaceState(null, '', url);
+            } catch (e) {
+                if (searchId !== currentSearchSeq) return;
+                results.innerHTML = `<div class="error">⚠ DB Retrieval failed: ${esc(e.message)}</div>`;
+                meta.textContent = 'Search failed';
+                submit.disabled = false;
+                submit.textContent = 'Search';
+                return;
+            }
+
+            // ──────────────────────────────────────────────────────────
+            // STEP 2: Ollama Decision (tev1:0.8b)
+            // ──────────────────────────────────────────────────────────
+            meta.textContent = `Step 2/3: System 1 decision model (${currentOllamaModel}) evaluating candidates…`;
+            decisionBannerWrap.innerHTML = renderProgressBanner({
+                step: 2,
+                dbSec,
+                dbCount: dbData.results.length,
+                decisionModel: currentOllamaModel,
+                genModel: currentOllamaGenModel,
+            });
+            const tDec0 = performance.now();
+            startLiveTimer('decision-live-timer', tDec0);
+
+            let decResult;
+            let decisionSec = 0;
+            try {
+                const dRes = await fetch('/search/decision', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        query: q,
+                        results: dbData.results,
+                        ollama_url: currentOllamaUrl,
+                        ollama_model: currentOllamaModel,
+                        ollama_gen_model: currentOllamaGenModel,
+                        synthesize_if_none: false
+                    })
+                });
+                stopLiveTimer();
+                decisionSec = (performance.now() - tDec0) / 1000;
+                if (searchId !== currentSearchSeq) return;
+
+                if (!dRes.ok) {
+                    const errData = await dRes.json().catch(() => ({}));
+                    throw new Error(errData.detail || `HTTP ${dRes.status}`);
+                }
+                const decisionResp = await dRes.json();
+                if (searchId !== currentSearchSeq) return;
+                decResult = decisionResp.decision;
+                if (decisionResp.decision_sec != null) {
+                    decisionSec = decisionResp.decision_sec;
+                }
+            } catch (err) {
+                stopLiveTimer();
+                if (searchId !== currentSearchSeq) return;
+                const totalSec = (performance.now() - tStartAll) / 1000;
+                decResult = {
+                    decision: 'none',
+                    label: 'No appropriate answer found, Ask an agent',
+                    model: currentOllamaModel,
+                    url: currentOllamaUrl,
+                    error: err.message
+                };
+                decisionBannerWrap.innerHTML = renderFinalBanner({
+                    decision: decResult,
+                    dbSec,
+                    dbCount: dbData.results.length,
+                    decisionSec,
+                    decisionModel: currentOllamaModel,
+                    genSec: null,
+                    genModel: currentOllamaGenModel,
+                    totalSec,
+                    q
+                });
+                submit.disabled = false;
+                submit.textContent = 'Search';
+                return;
+            }
+
+            const dState = decResult?.decision;
+
+            // If the decision model found an appropriate answer, display winner and finish!
+            if (dState !== 'none' && !decResult.error) {
+                const totalSec = dbSec + decisionSec;
+                meta.textContent = `${dbData.returned} DB records · DB: ${dbSec.toFixed(2)}s · Decision (${currentOllamaModel}): ${decisionSec.toFixed(2)}s · Total: ${totalSec.toFixed(2)}s`;
+                decisionBannerWrap.innerHTML = renderFinalBanner({
+                    decision: decResult,
+                    dbSec,
+                    dbCount: dbData.results.length,
+                    decisionSec,
+                    decisionModel: currentOllamaModel,
+                    genSec: null,
+                    genModel: currentOllamaGenModel,
+                    totalSec,
+                    q
+                });
+                highlightWinningCards(dState);
+                submit.disabled = false;
+                submit.textContent = 'Search';
+                return;
+            }
+
+            // ──────────────────────────────────────────────────────────
+            // STEP 3: Ollama Generate (qwen2.5:0.5b)
+            // ──────────────────────────────────────────────────────────
+            meta.textContent = `Step 3/3: Ollama (${currentOllamaGenModel}) synthesizing answer from top DB records…`;
+            decisionBannerWrap.innerHTML = renderProgressBanner({
+                step: 3,
+                dbSec,
+                dbCount: dbData.results.length,
+                decisionSec,
+                decisionModel: currentOllamaModel,
+                genModel: currentOllamaGenModel,
+            });
+            const tGen0 = performance.now();
+            startLiveTimer('gen-live-timer', tGen0);
+
+            let genResp;
+            let genSec = 0;
+            try {
+                const gRes = await fetch('/search/generate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        query: q,
+                        results: dbData.results,
+                        ollama_url: currentOllamaUrl,
+                        ollama_gen_model: currentOllamaGenModel,
+                    })
+                });
+                stopLiveTimer();
+                genSec = (performance.now() - tGen0) / 1000;
+                if (searchId !== currentSearchSeq) return;
+
+                if (!gRes.ok) {
+                    const errData = await gRes.json().catch(() => ({}));
+                    throw new Error(errData.detail || `HTTP ${gRes.status}`);
+                }
+                genResp = await gRes.json();
+                if (searchId !== currentSearchSeq) return;
+                if (genResp.generation_sec != null) {
+                    genSec = genResp.generation_sec;
+                }
+            } catch (err) {
+                stopLiveTimer();
+                if (searchId !== currentSearchSeq) return;
+                genResp = {
+                    query: q,
+                    generated_answer: null,
+                    error: err.message,
+                    fallback_to_agent: true
+                };
+            }
+
+            const totalSec = dbSec + decisionSec + genSec;
+
+            if (genResp.generated_answer && !genResp.fallback_to_agent) {
+                const genDec = {
+                    decision: 'generated',
+                    label: 'Generated on the fly',
+                    model: genResp.generator_model || currentOllamaGenModel,
+                    url: currentOllamaUrl,
+                    generated_answer: genResp.generated_answer,
+                    chunk_id: genResp.chunk_id,
+                    answer_source: 'generated_on_the_fly',
+                    generation_sec: genSec,
+                    raw_output: `Synthesized with ${genResp.generator_model || currentOllamaGenModel} in ${genSec.toFixed(2)}s`
+                };
+
+                meta.textContent = `${dbData.returned} DB records · DB: ${dbSec.toFixed(2)}s · Decision: ${decisionSec.toFixed(2)}s · Generate: ${genSec.toFixed(2)}s · Total: ${totalSec.toFixed(2)}s · Saved as ${genResp.chunk_id || ''}`;
+
+                decisionBannerWrap.innerHTML = renderFinalBanner({
+                    decision: genDec,
+                    dbSec,
+                    dbCount: dbData.results.length,
+                    decisionSec,
+                    decisionModel: currentOllamaModel,
+                    genSec,
+                    genModel: currentOllamaGenModel,
+                    totalSec,
+                    q
+                });
+
+                // Immediately prepend the generated result card so the user sees it the first time!
+                const genResult = {
+                    rank: '★',
+                    id: genResp.chunk_id || 'GEN_ON_THE_FLY',
+                    score: 1.0,
+                    question: q,
+                    answer: genResp.generated_answer,
+                    source: 'generated_on_the_fly',
+                    answer_source: 'generated_on_the_fly',
+                    keywords: 'generated on the fly, synthesized',
+                    evidence: {
+                        type: 'generated',
+                        answer_source: 'generated_on_the_fly',
+                        generator_model: genResp.generator_model || currentOllamaGenModel
+                    }
+                };
+                const genCard = renderResult(genResult, true, 'Synthesized on the fly');
+                results.insertBefore(genCard, results.firstChild);
+            } else {
+                // Fallback to human agent
+                const agentDec = {
+                    decision: 'none',
+                    label: 'No appropriate answer found, Ask an agent',
+                    model: currentOllamaModel,
+                    url: currentOllamaUrl,
+                    error: genResp.error || null
+                };
+                meta.textContent = `${dbData.returned} DB records · DB: ${dbSec.toFixed(2)}s · Decision: ${decisionSec.toFixed(2)}s · Generate: ${genSec.toFixed(2)}s · Total: ${totalSec.toFixed(2)}s · Agent fallback`;
+                decisionBannerWrap.innerHTML = renderFinalBanner({
+                    decision: agentDec,
+                    dbSec,
+                    dbCount: dbData.results.length,
+                    decisionSec,
+                    decisionModel: currentOllamaModel,
+                    genSec,
+                    genModel: currentOllamaGenModel,
+                    totalSec,
+                    q
+                });
+                const agentBtn = document.getElementById('ask-agent-btn');
+                if (agentBtn) {
+                    agentBtn.addEventListener('click', () => {
+                        alert(`Agent request triggered for: "${q}"\n\nYour question has been forwarded to the human agent queue.`);
+                    });
+                }
+            }
+            submit.disabled = false;
+            submit.textContent = 'Search';
+        }
+
+        form.addEventListener('submit', e => { e.preventDefault(); runSearch(input.value) });
+        document.querySelectorAll('.chip').forEach(c =>
+            c.addEventListener('click', () => { input.value = c.dataset.q; runSearch(c.dataset.q) }));
+
+        const initial = new URL(window.location.href).searchParams.get('q');
+        if (initial) { input.value = initial; runSearch(initial) }
+
+        // ---------------- Tabs ----------------
+        const tabs = document.querySelectorAll('.tab');
+        function showTab(name) {
+            if (!['search', 'upload'].includes(name)) name = 'search';
+            tabs.forEach(t => t.setAttribute('aria-selected', String(t.dataset.tab === name)));
+            document.getElementById('tab-search').hidden = name !== 'search';
+            document.getElementById('tab-upload').hidden = name !== 'upload';
+            if (name === 'upload') { window.SourceViewer?.close(); loadDocs(); }
+            const url = new URL(window.location.href);
+            url.hash = name === 'search' ? '' : name;
+            history.replaceState(null, '', url);
+        }
+        tabs.forEach(t => t.addEventListener('click', () => showTab(t.dataset.tab)));
+
+        // ---------------- Upload ----------------
+        const upForm = document.getElementById('upload-form');
+        const upBtn = document.getElementById('upload-btn');
+        const upProgress = document.getElementById('up-progress');
+        const upResult = document.getElementById('up-result');
+        const tokenInput = document.getElementById('admin-token');
+        const saveAs = document.getElementById('save-as');
+        const files = { md: null, pdf: null };
+        const drops = {
+            md: { el: document.getElementById('drop-md'), input: document.getElementById('file-md'), ok: f => /\.(md|markdown)$/i.test(f.name) },
+            pdf: { el: document.getElementById('drop-pdf'), input: document.getElementById('file-pdf'), ok: f => /\.pdf$/i.test(f.name) || f.type === 'application/pdf' },
+        };
+        tokenInput.value = localStorage.getItem('choicerag.adminToken') || '';
+        tokenInput.addEventListener('change', () => localStorage.setItem('choicerag.adminToken', tokenInput.value));
+
+        const fmtSize = n => n < 1024 ? `${n} B` : n < 1048576 ? `${(n / 1024).toFixed(1)} KB` : `${(n / 1048576).toFixed(1)} MB`;
+
+        function setFile(kind, f) {
+            const d = drops[kind];
+            if (f && !d.ok(f)) {
+                upResult.innerHTML = `<div class="error">⚠ ${esc(f.name)} is not a ${kind === 'md' ? 'markdown (.md)' : 'PDF'} file.</div>`;
+                f = null;
+            }
+            files[kind] = f || null;
+            d.el.classList.toggle('filled', !!f);
+            d.el.querySelector('.fname').textContent = f ? `${f.name} · ${fmtSize(f.size)}` : '';
+            if (!f) d.input.value = '';
+            upBtn.disabled = !files.md;
+            saveAs.innerHTML = files.md && files.pdf
+                ? `PDF will be stored as <code>pdfs/${esc(files.md.name.replace(/\.(md|markdown)$/i, ''))}.pdf</code> and linked to <code>${esc(files.md.name)}</code>.`
+                : '';
+        }
+
+        Object.entries(drops).forEach(([kind, d]) => {
+            d.input.addEventListener('change', () => setFile(kind, d.input.files[0]));
+            ['dragenter', 'dragover'].forEach(ev => d.el.addEventListener(ev, e => { e.preventDefault(); d.el.classList.add('over'); }));
+            ['dragleave', 'drop'].forEach(ev => d.el.addEventListener(ev, e => { e.preventDefault(); d.el.classList.remove('over'); }));
+            d.el.addEventListener('drop', e => {
+                const list = [...(e.dataTransfer?.files || [])];
+                // dropping both files on either zone routes each to the right slot
+                if (list.length > 1) list.forEach(f => { if (drops.md.ok(f)) setFile('md', f); else if (drops.pdf.ok(f)) setFile('pdf', f); });
+                else if (list[0]) setFile(kind, list[0]);
+            });
+        });
+        document.querySelectorAll('[data-clear]').forEach(b =>
+            b.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); setFile(b.dataset.clear, null); }));
+
+        function xhrUpload(url, fd, headers, onProgress) {
+            return new Promise((resolve, reject) => {
+                const x = new XMLHttpRequest();
+                x.open('POST', url);
+                Object.entries(headers).forEach(([k, v]) => x.setRequestHeader(k, v));
+                x.upload.onprogress = e => e.lengthComputable && onProgress(e.loaded / e.total);
+                x.onload = () => {
+                    let d = {}; try { d = JSON.parse(x.responseText); } catch { }
+                    if (x.status >= 200 && x.status < 300) return resolve(d);
+                    const msg = typeof d.detail === 'string' ? d.detail : d.detail ? JSON.stringify(d.detail) : `HTTP ${x.status}`;
+                    reject(new Error(msg));
+                };
+                x.onerror = () => reject(new Error('network error'));
+                x.send(fd);
+            });
+        }
+
+        upForm.addEventListener('submit', async e => {
+            e.preventDefault();
+            if (!files.md) return;
+            const fd = new FormData();
+            fd.append('markdown', files.md);
+            if (files.pdf) fd.append('pdf', files.pdf);
+            const headers = tokenInput.value ? { 'X-Admin-Token': tokenInput.value } : {};
+            const purge = document.getElementById('purge-old').checked;
+            const bar = upProgress.firstElementChild;
+
+            upBtn.disabled = true; upBtn.textContent = 'Uploading…';
+            upResult.innerHTML = '';
+            upProgress.hidden = false; upProgress.classList.remove('indeterminate'); bar.style.width = '0';
+            try {
+                const r = await xhrUpload(`/admin/upload?purge_old=${purge}`, fd, headers, p => {
+                    bar.style.width = `${Math.round(p * 100)}%`;
+                    if (p >= 1) { upProgress.classList.add('indeterminate'); upBtn.textContent = 'Indexing…'; }
+                });
+                window.SourceViewer?.clearCache();
+                upResult.innerHTML = `<div class="ok">✓ ${r.skipped ? 'Markdown unchanged — existing version kept' : 'Indexed successfully'}
+                    <div class="kv">
+                        <span class="pill">${esc(r.filename)}</span>
+                        <span class="pill">v${r.version}</span>
+                        <span class="pill text">${r.chunks} chunks</span>
+                        ${r.pdf ? `<span class="pill table">📄 ${esc(r.pdf)}</span>` : '<span class="pill">no PDF</span>'}
+                    </div>
+                    <div style="margin-top:.6rem"><a href="#" id="go-search">Go to search →</a></div></div>`;
+                document.getElementById('go-search').onclick = ev => { ev.preventDefault(); showTab('search'); input.focus(); };
+                setFile('md', null); setFile('pdf', null);
+                refreshHealth(); loadDocs();
+            } catch (err) {
+                upResult.innerHTML = `<div class="error">⚠ ${esc(err.message)}</div>`;
+            } finally {
+                upProgress.hidden = true;
+                upBtn.textContent = 'Upload & index';
+                upBtn.disabled = !files.md;
+            }
+        });
+
+        const docsList = document.getElementById('docs-list');
+        async function loadDocs() {
+            try {
+                const r = await fetch('/documents');
+                if (!r.ok) throw new Error(`HTTP ${r.status}`);
+                const { documents } = await r.json();
+                if (!documents.length) { docsList.textContent = 'No documents indexed yet.'; return; }
+                docsList.innerHTML = `<table class="docs"><thead><tr>
+                    <th>Markdown</th><th>Version</th><th>Active</th><th>PDF</th></tr></thead><tbody>
+                    ${documents.map(d => `<tr>
+                        <td class="mono">${esc(d.filename)}</td>
+                        <td>v${d.latest_version} <span class="sub2">(${d.versions} total)</span></td>
+                        <td>${d.active_versions ? '<span class="pill text">active</span>' : '<span class="pill">inactive</span>'}</td>
+                        <td class="mono">${d.pdf
+                        ? `<a href="/pdf?doc=${encodeURIComponent(d.filename)}" target="_blank" style="color:var(--accent)">${esc(d.pdf)}</a>`
+                        : '<span class="none">missing</span>'}</td></tr>`).join('')}
+                    </tbody></table>`;
+            } catch (err) {
+                docsList.innerHTML = `<div class="error">⚠ Could not load documents: ${esc(err.message)}</div>`;
+            }
+        }
+        document.getElementById('docs-refresh').addEventListener('click', loadDocs);
+
+        showTab(location.hash.replace('#', ''));
+    </script>
+
+    <script type="module">
+        // ---------------- PDF.js source viewer ----------------
+        import * as pdfjsLib from 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.min.mjs';
+        pdfjsLib.GlobalWorkerOptions.workerSrc =
+            'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.worker.min.mjs';
+
+        const $ = id => document.getElementById(id);
+        const panel = $('source-panel'), body = $('sp-body'), stage = $('sp-stage');
+        const canvas = $('sp-canvas'), hlLayer = $('sp-hl'), status = $('sp-status');
+        const pageLbl = $('sp-page'), quoteBox = $('sp-quote');
+        const btnPrev = $('sp-prev'), btnNext = $('sp-next');
+        const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+        const docCache = new Map();
+        const st = { pdf: null, page: 1, zoom: 1, ev: null, task: null, token: 0, firstHit: null };
+
+        function loadPdf(url) {
+            if (!docCache.has(url)) {
+                const p = pdfjsLib.getDocument({ url }).promise;
+                p.catch(() => docCache.delete(url));
+                docCache.set(url, p);
+            }
+            return docCache.get(url);
+        }
+
+        function showStatus(html) {
+            status.innerHTML = html; status.hidden = !html;
+        }
+
+        // ---- text normalisation: keep only [a-z0-9] so hyphenation, line breaks,
+        //      ligatures, curly quotes and spacing differences don't break matching.
+        function fold(ch) {
+            return ch.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
+        }
+        const normStr = s => [...String(s || '')].map(fold).join('');
+
+        function buildIndex(tc) {
+            let text = ''; const map = []; // map[i] = [itemIdx, charIdx]
+            tc.items.forEach((it, ii) => {
+                if (!it.str) return;
+                [...it.str].forEach((ch, ci) => {
+                    const f = fold(ch);
+                    for (const c of f) { text += c; map.push([ii, ci]); }
+                });
+            });
+            return { text, map };
+        }
+
+        function allIndexes(hay, needle) {
+            const out = []; let i = hay.indexOf(needle);
+            while (i !== -1 && out.length < 50) { out.push(i); i = hay.indexOf(needle, i + 1); }
+            return out;
+        }
+
+        // Range of normalised chars [a, b) -> list of viewport-space rects.
+        function rangeRects(tc, idx, vp, a, b) {
+            const perItem = new Map();
+            for (let k = a; k < b; k++) {
+                const [ii, ci] = idx.map[k];
+                const r = perItem.get(ii);
+                if (!r) perItem.set(ii, [ci, ci]); else { r[0] = Math.min(r[0], ci); r[1] = Math.max(r[1], ci); }
+            }
+            const rects = [];
+            for (const [ii, [c0, c1]] of perItem) {
+                const it = tc.items[ii];
+                const len = [...it.str].length || 1;
+                const tx = pdfjsLib.Util.transform(vp.transform, it.transform);
+                const fh = Math.hypot(tx[2], tx[3]);
+                const w = it.width * vp.scale;
+                const x = tx[4] + w * (c0 / len);
+                const width = Math.max(2, w * ((c1 + 1 - c0) / len));
+                rects.push({ x: x - 1, y: tx[5] - fh * 0.88, w: width + 2, h: fh * 1.12 });
+            }
+            return rects;
+        }
+
+        // Find a phrase in the page text. Falls back to the longest matching word window.
+        // If a bbox is supplied, prefer matches that lie inside it (charts/tables).
+        function findPhrase(tc, idx, vp, phrase, bboxPx) {
+            const words = String(phrase).replace(/[…]/g, ' ').split(/\s+/).filter(w => normStr(w));
+            if (!words.length) return { rects: [], exact: false };
+            const minLen = bboxPx ? 2 : 4;
+
+            const tryNeedle = (needle) => {
+                if (needle.length < minLen) return null;
+                const hits = allIndexes(idx.text, needle);
+                if (!hits.length) return null;
+                let best = null, bestScore = -Infinity;
+                for (const h of hits) {
+                    const rects = rangeRects(tc, idx, vp, h, h + needle.length);
+                    let score = 0;
+                    if (bboxPx) {
+                        const inside = rects.filter(r => {
+                            const cx = r.x + r.w / 2, cy = r.y + r.h / 2;
+                            return cx >= bboxPx.x - 20 && cx <= bboxPx.x + bboxPx.w + 20 &&
+                                cy >= bboxPx.y - 20 && cy <= bboxPx.y + bboxPx.h + 20;
+                        }).length;
+                        score = inside / rects.length;
+                    }
+                    if (score > bestScore) { bestScore = score; best = rects; }
+                }
+                // very short needles (e.g. "4.7") are only trusted inside the bbox
+                if (bboxPx && needle.length < 6 && bestScore <= 0) return null;
+                return best;
+            };
+
+            const full = tryNeedle(normStr(words.join(' ')));
+            if (full) return { rects: full, exact: true };
+            for (let n = words.length - 1; n >= Math.min(3, words.length); n--) {
+                for (let s = 0; s + n <= words.length; s++) {
+                    const r = tryNeedle(normStr(words.slice(s, s + n).join(' ')));
+                    if (r) return { rects: r, exact: false };
+                }
+            }
+            return { rects: [], exact: false };
+        }
+
+        function addRect(r, cls, delay = 0) {
+            const d = document.createElement('div');
+            d.className = cls;
+            Object.assign(d.style, { left: r.x + 'px', top: r.y + 'px', width: r.w + 'px', height: r.h + 'px', animationDelay: delay + 'ms' });
+            hlLayer.appendChild(d);
+            return d;
+        }
+
+        async function drawHighlights(page, vp, ev) {
+            const type = (ev.type || 'text').toLowerCase();
+            const els = [];
+            let bboxPx = null;
+
+            if (Array.isArray(ev.bbox) && ev.bbox.length === 4) {
+                const [x0, y0, x1, y1] = ev.bbox.map(Number);
+                bboxPx = { x: x0 * vp.width, y: y0 * vp.height, w: (x1 - x0) * vp.width, h: (y1 - y0) * vp.height };
+                if (type !== 'text') {
+                    const box = addRect(bboxPx, `hl-box ${type === 'table' ? 'table' : 'chart'}`);
+                    const tag = document.createElement('span');
+                    tag.className = 'tag';
+                    tag.textContent = ev.caption_anchor || type;
+                    box.appendChild(tag);
+                    els.push(box);
+                }
+            }
+
+            const tc = await page.getTextContent();
+            const idx = buildIndex(tc);
+            console.log("idx", idx);
+            const report = {};
+
+            if (ev.caption_anchor) {
+                const { rects } = findPhrase(tc, idx, vp, ev.caption_anchor, null);
+                rects.forEach((r, i) => els.push(addRect(r, 'hl-text caption', i * 30)));
+                report.caption = rects.length > 0;
+            }
+            if (ev.quote) {
+                const { rects, exact } = findPhrase(tc, idx, vp, ev.quote, type === 'text' ? null : bboxPx);
+                const qEls = rects.map((r, i) => addRect(r, 'hl-text', i * 30));
+                // for text evidence, the quote is the primary target to scroll to
+                if (type === 'text') els.unshift(...qEls); else els.push(...qEls);
+                report.quote = rects.length ? (exact ? 'exact' : 'partial') : 'missing';
+            }
+            return { els, report };
+        }
+
+        async function render({ scroll = false } = {}) {
+            if (!st.pdf) return;
+            const token = ++st.token;
+            const page = await st.pdf.getPage(st.page);
+            if (token !== st.token) return;
+
+            const base = page.getViewport({ scale: 1 });
+            const avail = Math.max(240, body.clientWidth - 32);
+            const vp = page.getViewport({ scale: (avail / base.width) * st.zoom });
+            const dpr = window.devicePixelRatio || 1;
+
+            if (st.task) { try { st.task.cancel(); } catch { } }
+            canvas.width = Math.floor(vp.width * dpr);
+            canvas.height = Math.floor(vp.height * dpr);
+            canvas.style.width = vp.width + 'px';
+            canvas.style.height = vp.height + 'px';
+            stage.style.width = vp.width + 'px';
+            stage.style.height = vp.height + 'px';
+            hlLayer.innerHTML = '';
+
+            st.task = page.render({
+                canvasContext: canvas.getContext('2d'), viewport: vp,
+                transform: dpr !== 1 ? [dpr, 0, 0, dpr, 0, 0] : null
+            });
+            try { await st.task.promise; } catch (e) {
+                if (e?.name === 'RenderingCancelledException') return; throw e;
+            }
+            if (token !== st.token) return;
+
+            pageLbl.textContent = `${st.page} / ${st.pdf.numPages}`;
+            btnPrev.disabled = st.page <= 1;
+            btnNext.disabled = st.page >= st.pdf.numPages;
+
+            st.firstHit = null;
+            const evPage = parseInt(st.ev?.page, 10) || 1;
+            if (st.ev && evPage === st.page) {
+                const { els, report } = await drawHighlights(page, vp, st.ev);
+                if (token !== st.token) return;
+                st.firstHit = els[0] || null;
+                updateQuoteBox(report);
+                if (scroll) jumpToHit();
+            }
+        }
+
+        function updateQuoteBox(report) {
+            const ev = st.ev || {};
+            let html = '';
+            if (ev.quote) {
+                const note = report.quote === 'missing' ? ' <span class="miss">· not found in text layer</span>'
+                    : report.quote === 'partial' ? ' <span class="miss">· partial match</span>' : '';
+                html += `<div>“<span class="q">${esc(ev.quote)}</span>”${note}</div>`;
+            }
+            if (ev.caption_anchor) html += `<div>caption: <span class="q">${esc(ev.caption_anchor)}</span></div>`;
+            quoteBox.innerHTML = html;
+        }
+
+        function jumpToHit() {
+            const el = st.firstHit;
+            if (!el) return;
+            const b = body.getBoundingClientRect(), r = el.getBoundingClientRect();
+            body.scrollTo({
+                top: body.scrollTop + (r.top - b.top) - (b.height - r.height) / 2,
+                left: body.scrollLeft + (r.left - b.left) - (b.width - r.width) / 2,
+                behavior: 'smooth'
+            });
+        }
+
+        async function open(result) {
+            const ev = result.evidence || {};
+            const type = (ev.type || 'text').toLowerCase();
+            $('sp-type').className = `pill ${type}`;
+            $('sp-type').textContent = type;
+            $('sp-label').textContent = `${result.id} · ${result.question}`;
+            $('sp-label').title = result.question;
+            quoteBox.innerHTML = '';
+            document.body.classList.add('panel-open');
+            panel.setAttribute('aria-hidden', 'false');
+
+            const url = '/pdf' + (result.document ? `?doc=${encodeURIComponent(result.document)}` : '');
+            showStatus('<div class="spinner"></div>Loading PDF…');
+            try {
+                st.pdf = await loadPdf(url);
+            } catch (e) {
+                st.pdf = null; hlLayer.innerHTML = '';
+                showStatus(`⚠ Could not load the source PDF.<br><br>Place it in <code>pdfs/</code> on the server ` +
+                    `(e.g. <code>pdfs/${esc((result.document || 'document').replace(/[-_]?qa\.md$|\.md$/i, ''))}.pdf</code>).` +
+                    `<br><small>${esc(e.message || e)}</small>`);
+                return;
+            }
+            showStatus('');
+            st.ev = ev;
+            st.zoom = 1;
+            st.page = Math.min(Math.max(1, parseInt(ev.page, 10) || 1), st.pdf.numPages);
+            // wait for the slide-in so the panel width is final before sizing the page
+            await new Promise(r => setTimeout(r, 60));
+            await render({ scroll: true });
+        }
+
+        function close() {
+            document.body.classList.remove('panel-open');
+            panel.setAttribute('aria-hidden', 'true');
+            document.querySelectorAll('.result.viewing').forEach(x => x.classList.remove('viewing'));
+        }
+
+        btnPrev.onclick = () => { if (st.pdf && st.page > 1) { st.page--; body.scrollTop = 0; render(); } };
+        btnNext.onclick = () => { if (st.pdf && st.page < st.pdf.numPages) { st.page++; body.scrollTop = 0; render(); } };
+        $('sp-zoom-in').onclick = () => { st.zoom = Math.min(4, st.zoom * 1.25); render({ scroll: true }); };
+        $('sp-zoom-out').onclick = () => { st.zoom = Math.max(0.5, st.zoom / 1.25); render({ scroll: true }); };
+        $('sp-jump').onclick = () => {
+            const evPage = parseInt(st.ev?.page, 10) || 1;
+            if (st.pdf && st.page !== evPage) { st.page = evPage; render({ scroll: true }); } else jumpToHit();
+        };
+        $('sp-close').onclick = close;
+        document.addEventListener('keydown', e => {
+            if (!document.body.classList.contains('panel-open')) return;
+            if (e.key === 'Escape') close();
+            if (e.target.matches('input, textarea')) return;
+            if (e.key === 'ArrowLeft') btnPrev.click();
+            if (e.key === 'ArrowRight') btnNext.click();
+        });
+        let rT; window.addEventListener('resize', () => {
+            if (!document.body.classList.contains('panel-open')) return;
+            clearTimeout(rT); rT = setTimeout(() => render(), 150);
+        });
+
+        window.SourceViewer = { open, close, clearCache: () => docCache.clear() };
+    </script>
+</body>
+
+</html>
