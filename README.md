@@ -30,7 +30,7 @@ flowchart TD
     MAP -->|true, false| T1[Select TOP_1]
     MAP -->|false, true| T2[Select TOP_2]
     MAP -->|false, false| NONE[NONE: no suitable stored answer]
-    BOTH --> EVID[Return selected stored answer(s)<br/>with evidence]
+    BOTH --> EVID[Return selected stored answers<br/>with evidence]
     T1 --> EVID
     T2 --> EVID
     NONE --> GEN[Ollama /api/generate<br/>e.g. qwen2.5:0.5b]
